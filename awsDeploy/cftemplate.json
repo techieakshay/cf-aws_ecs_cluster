@@ -1,258 +1,467 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "CloudFormation template to create an ECS Cluster with a custom security group",
-  
-    "Parameters": {
-      "VpcId": {
-        "Description": "The VPC ID where the ECS cluster will be created",
-        "Type": "String",
-        "Default" : "vpc-026a3605217f29788"
-      },
-      "ClusterName": {
-        "Description": "TName of ecs cluster",
-        "Type": "String",
-        "Default" : "appecscluster"
-      },
-      "InstanceType": {
-        "Description": "EC2 instance type for the ECS cluster",
-        "Type": "String",
-        "Default": "t2.micro",
-        "AllowedValues": [
-          "t2.micro",
-          "t3.micro",
-          "t2.small",
-          "t3.small"
-        ],
-        "ConstraintDescription": "must be a valid EC2 instance type."
-      },
-      "KeyName": {
-        "Description": "The EC2 KeyPair for SSH access",
-        "Type": "AWS::EC2::KeyPair::KeyName",
-        "ConstraintDescription": "must be an existing EC2 KeyPair.",
-        "Default" : "appecsclusterkey"
-      },
-      "SubnetIds": {
-        "Description": "The Subnet IDs where the EC2 instances will be placed",
-        "Type": "List<AWS::EC2::Subnet::Id>",
-        "Default" : "subnet-063f5ebf040c9ac55,subnet-00b8ac669e7b8bc25,subnet-0e0ca2a7e889c65af,subnet-008dcb0952a81837f,subnet-07483cbd7bfbccec0"
-      },
-      "ScheduledActionUp": {
-        "Description": "Schedule Action to bring up the instance",
-        "Type": "String",
-        "Default" : "false"
-      },
-      "ScheduledActionDown": {
-        "Description": "Schedule Action to bring down the instance",
-        "Type": "String",
-        "Default" : "true"
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template to create an ECS Cluster with a custom security group",
+  "Parameters": {
+    "VpcId": {
+      "Description": "The VPC ID where the ECS cluster will be created",
+      "Type": "String",
+      "Default": "vpc-026a3605217f29788"
+    },
+    "Toggle": {
+      "Description": "Toggler to make aws cloudformation force to update launch configuration",
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Default": "true"
+    },
+    "ClusterName": {
+      "Description": "TName of ecs cluster",
+      "Type": "String",
+      "Default": "appecscluster"
+    },
+    "InstanceType": {
+      "Description": "EC2 instance type for the ECS cluster",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.micro",
+        "t3.micro",
+        "t2.small",
+        "t3.small"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "KeyName": {
+      "Description": "The EC2 KeyPair for SSH access",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be an existing EC2 KeyPair.",
+      "Default": "appecsclusterkey"
+    },
+    "SubnetIds": {
+      "Description": "The Subnet IDs where the EC2 instances will be placed",
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Default": "subnet-063f5ebf040c9ac55,subnet-00b8ac669e7b8bc25,subnet-0e0ca2a7e889c65af,subnet-008dcb0952a81837f,subnet-07483cbd7bfbccec0"
+    },
+    "ScheduledActionUp": {
+      "Description": "Schedule Action to bring up the instance",
+      "Type": "String",
+      "Default": "false"
+    },
+    "ScheduledActionDown": {
+      "Description": "Schedule Action to bring down the instance",
+      "Type": "String",
+      "Default": "true"
+    },
+    "LoadBalancerName": {
+      "Type": "String",
+      "Default": "app-cluster-lb",
+      "Description": "The name of the Application Load Balancer."
+    },
+    "ListenerPort": {
+      "Type": "Number",
+      "Default": 80,
+      "Description": "The port on which the ALB will listen."
+    }
+  },
+  "Conditions": {
+    "CreateScheduleDownAction": {
+      "Fn::Equals": [
+        {
+          "Ref": "ScheduledActionDown"
+        },
+        "true"
+      ]
+    },
+    "CreateScheduleUpAction": {
+      "Fn::Equals": [
+        {
+          "Ref": "ScheduledActionUp"
+        },
+        "true"
+      ]
+    }
+  },
+  "Resources": {
+    "ECSCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "ClusterName": "appecscluster"
       }
     },
-    "Conditions": {
-        "CreateScheduleDownAction": {
-            "Fn::Equals": [
-                {
-                    "Ref": "ScheduledActionDown"
-                },
-                "true"
-            ]
+    "ECSSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security group for ECS EC2 instances",
+        "VpcId": {
+          "Ref": "VpcId"
         },
-        "CreateScheduleUpAction": {
-            "Fn::Equals": [
-                {
-                    "Ref": "ScheduledActionUp"
-                },
-                "true"
-            ]
-        }
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
     },
-    "Resources": {
-        "ECSCluster": {
-          "Type": "AWS::ECS::Cluster",
-          "Properties": {
-            "ClusterName": "MyEC2ECSCluster"
-          }
-        },
-    
-        "ECSSecurityGroup": {
-          "Type": "AWS::EC2::SecurityGroup",
-          "Properties": {
-            "GroupDescription": "Security group for ECS EC2 instances",
-            "VpcId": {
-              "Ref": "VpcId"
-            },
-            "SecurityGroupIngress": [
-              {
-                "IpProtocol": "tcp",
-                "FromPort": 80,
-                "ToPort": 80,
-                "CidrIp": "0.0.0.0/0"
+    "ECSRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
               },
-              {
-                "IpProtocol": "tcp",
-                "FromPort": 443,
-                "ToPort": 443,
-                "CidrIp": "0.0.0.0/0"
-              }
-            ]
-          }
+              "Action": "sts:AssumeRole"
+            }
+          ]
         },
-    
-        "ECSRole": {
-          "Type": "AWS::IAM::Role",
-          "Properties": {
-            "AssumeRolePolicyDocument": {
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "AmazonEC2ContainerServiceforEC2Role",
+            "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Principal": {
-                    "Service": "ec2.amazonaws.com"
-                  },
-                  "Action": "sts:AssumeRole"
+                  "Action": [
+                    "ecs:CreateCluster",
+                    "ecs:DeregisterContainerInstance",
+                    "ecs:DiscoverPollEndpoint",
+                    "ecs:Poll",
+                    "ecs:RegisterContainerInstance",
+                    "ecs:StartTelemetrySession",
+                    "ecs:UpdateContainerInstancesState",
+                    "ecs:Submit*",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:*"
+                  ],
+                  "Resource": "*"
                 }
               ]
-            },
-            "Path": "/",
-            "Policies": [
-              {
-                "PolicyName": "AmazonEC2ContainerServiceforEC2Role",
-                "PolicyDocument": {
-                  "Version": "2012-10-17",
-                  "Statement": [
-                    {
-                      "Effect": "Allow",
-                      "Action": [
-                        "ecs:CreateCluster",
-                        "ecs:DeregisterContainerInstance",
-                        "ecs:DiscoverPollEndpoint",
-                        "ecs:Poll",
-                        "ecs:RegisterContainerInstance",
-                        "ecs:StartTelemetrySession",
-                        "ecs:UpdateContainerInstancesState",
-                        "ecs:Submit*",
-                        "logs:CreateLogStream",
-                        "logs:PutLogEvents"
-                      ],
-                      "Resource": "*"
-                    }
-                  ]
-                }
-              }
-            ]
+            }
           }
-        },
-    
-        "InstanceProfile": {
-          "Type": "AWS::IAM::InstanceProfile",
-          "Properties": {
-            "Path": "/",
-            "Roles": [
-              {
-                "Ref": "ECSRole"
-              }
-            ]
+        ]
+      }
+    },
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "ECSRole"
           }
-        },
-    
-        "ECSLaunchConfiguration": {
-          "Type": "AWS::AutoScaling::LaunchConfiguration",
-          "Properties": {
-            "ImageId": {
-              "Fn::FindInMap": [
-                "AWSRegionToAMI",
-                {
-                  "Ref": "AWS::Region"
-                },
-                "AMI"
-              ]
-            },
-            "InstanceType": {
-              "Ref": "InstanceType"
-            },
-            "IamInstanceProfile": {
+        ]
+      }
+    },
+    "EcsLaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "DependsOn": "InstanceProfile",
+      "Properties": {
+        "LaunchTemplateName": "ECSLaunchTemplate",
+        "LaunchTemplateData": {
+          "ImageId": {
+            "Fn::FindInMap": [
+              "AWSRegionToAMI",
+              {
+                "Ref": "AWS::Region"
+              },
+              "AMI"
+            ]
+          },
+          "InstanceType": {
+            "Ref": "InstanceType"
+          },
+          "KeyName": {
+            "Ref": "KeyName"
+          },
+          "SecurityGroupIds": [
+            {
+              "Ref": "ECSSecurityGroup"
+            }
+          ],
+          "IamInstanceProfile": {
+            "Name": {
               "Ref": "InstanceProfile"
-            },
-            "KeyName": {
-              "Ref": "KeyName"
-            },
-            "SecurityGroups": [
-              {
-                "Ref": "ECSSecurityGroup"
-              }
-            ],
-            "UserData": {
-              "Fn::Base64": {
-                "Fn::Sub": "#!/bin/bash\necho ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config"
-              }
-            }
-          }
-        },
-    
-        "ECSAutoScalingGroup": {
-          "Type": "AWS::AutoScaling::AutoScalingGroup",
-          "Properties": {
-            "VPCZoneIdentifier": {
-              "Ref": "SubnetIds"
-            },
-            "LaunchConfigurationName": {
-              "Ref": "ECSLaunchConfiguration"
-            },
-            "MinSize": "1",
-            "MaxSize": "3",
-            "DesiredCapacity": "1"
-          }
-        },
-        "ScheduledActionStopResource": {
-            "Type": "AWS::AutoScaling::ScheduledAction",
-            "Condition": "CreateScheduleDownAction",
-            "Properties": {
-              "AutoScalingGroupName": {
-                "Ref": "ECSAutoScalingGroup"
-              },
-              "DesiredCapacity": "0",
-              "Recurrence": "0 18 * * *",  
-              "MinSize": "0",
-              "MaxSize": "0"
             }
           },
-          "ScheduledActionUpResource": {
-            "Type": "AWS::AutoScaling::ScheduledAction",
-            "Condition": "CreateScheduleUpAction",
-            "Properties": {
-              "AutoScalingGroupName": {
-                "Ref": "ECSAutoScalingGroup"
-              },
-              "DesiredCapacity": "0",
-              "Recurrence": "0 5 * * *",  
-              "MinSize": "1",
-              "MaxSize": "1"
+          "UserData": {
+            "Fn::Base64": {
+              "Fn::Join": [
+                "",
+                [
+                  "#!/bin/bash\n",
+                  "set -x\n",
+                  "exec > >(tee -a /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1\n",
+                  "echo \"==== UserData script started at $(date) ====\"\n",
+                  "yum update -y\n",
+                  "yum install -y amazon-cloudwatch-agent\n",
+                  "echo ECS_CLUSTER=",
+                  {
+                    "Ref": "ClusterName"
+                  },
+                  " >> /etc/ecs/ecs.config\n",
+                  "cat << EOF > /opt/aws/amazon-cloudwatch-agent/bin/config.json\n",
+                  "{\n",
+                  "  \"agent\": {\n",
+                  "    \"metrics_collection_interval\": 60,\n",
+                  "    \"logfile\": \"/opt/aws/amazon-cloudwatch-agent/logs/agent.log\"\n",
+                  "  },\n",
+                  "  \"logs\": {\n",
+                  "    \"logs_collected\": {\n",
+                  "      \"files\": {\n",
+                  "        \"collect_list\": [\n",
+                  "          {\n",
+                  "            \"file_path\": \"/var/log/cloud-init.log\",\n",
+                  "            \"log_group_name\": \"/ecs/cloud-init.log\",\n",
+                  "            \"log_stream_name\": \"{instance_id}/cloud-init.log\",\n",
+                  "            \"timestamp_format\": \"%Y-%m-%d %H:%M:%S\"\n",
+                  "          },\n",
+                  "          {\n",
+                  "            \"file_path\": \"/var/log/cloud-init-output.log\",\n",
+                  "            \"log_group_name\": \"/ecs/cloud-init-output.log\",\n",
+                  "            \"log_stream_name\": \"{instance_id}/cloud-init-output.log\",\n",
+                  "            \"timestamp_format\": \"%Y-%m-%d %H:%M:%S\"\n",
+                  "          },\n",
+                  "          {\n",
+                  "            \"file_path\": \"/var/log/ecs/ecs-agent.log\",\n",
+                  "            \"log_group_name\": \"/ecs/ecs-agent.log\",\n",
+                  "            \"log_stream_name\": \"{instance_id}/ecs-agent.log\",\n",
+                  "            \"timestamp_format\": \"%Y-%m-%d %H:%M:%S\"\n",
+                  "          }\n",
+                  "        ]\n",
+                  "      }\n",
+                  "    }\n",
+                  "  }\n",
+                  "}\n",
+                  "EOF\n",
+                  "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \\\n",
+                  "    -a fetch-config \\\n",
+                  "    -m ec2 \\\n",
+                  "    -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json \\\n",
+                  "    -s\n",
+                  "systemctl stop ecs\n",
+                  "sleep 15\n",
+                  "systemctl enable ecs\n",
+                  "sleep 15\n",
+                  "systemctl start ecs\n",
+                  "echo 'Waiting for Docker and ECS services to be active...'\n",
+                  "while ! systemctl is-active --quiet docker; do\n",
+                  "  echo 'Waiting for Docker to start...'\n",
+                  "  sleep 5\n",
+                  "done\n",
+                  "while ! systemctl is-active --quiet ecs; do\n",
+                  "  echo 'Waiting for ECS Agent to start...'\n",
+                  "  sleep 5\n",
+                  "done\n",
+                  "echo 'Checking ECS service status...'\n",
+                  "systemctl status ecs -l\n",
+                  "echo \"==== UserData script completed at $(date) ====\"\n"
+                ]
+              ]
             }
-          }
-      },
-    
-      "Mappings": {
-        "AWSRegionToAMI": {
-          "us-east-1": {
-            "AMI": "ami-0de53d8956e8dcf80"  
-          },
-          "us-west-2": {
-            "AMI": "ami-07c1207a9d40bc3bd" 
-          }
-        }
-      },
-    
-      "Outputs": {
-        "ClusterName": {
-          "Description": "The name of the ECS Cluster",
-          "Value": {
-            "Ref": "ECSCluster"
-          }
-        },
-        "SecurityGroupId": {
-          "Description": "The ID of the ECS Security Group",
-          "Value": {
-            "Ref": "ECSSecurityGroup"
           }
         }
       }
+    },
+    "ECSAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "LaunchTemplate": {
+          "LaunchTemplateId": {
+            "Ref": "EcsLaunchTemplate"
+          },
+          "Version": {
+            "Fn::GetAtt": [
+              "EcsLaunchTemplate",
+              "LatestVersionNumber"
+            ]
+          }
+        },
+        "VPCZoneIdentifier": {
+          "Ref": "SubnetIds"
+        },
+        "MinSize": "1",
+        "MaxSize": "3",
+        "DesiredCapacity": "1",
+        "HealthCheckType": "EC2",
+        "HealthCheckGracePeriod": 300
+      },
+      "UpdatePolicy": {
+        "AutoScalingRollingUpdate": {
+          "MinInstancesInService": "1",
+          "MaxBatchSize": "1",
+          "PauseTime": "PT5M"
+        }
+      }
+    },
+    "ScheduledActionStopResource": {
+      "Type": "AWS::AutoScaling::ScheduledAction",
+      "Condition": "CreateScheduleDownAction",
+      "Properties": {
+        "AutoScalingGroupName": {
+          "Ref": "ECSAutoScalingGroup"
+        },
+        "DesiredCapacity": "0",
+        "Recurrence": "0 18 * * *",
+        "MinSize": "0",
+        "MaxSize": "0"
+      }
+    },
+    "ScheduledActionUpResource": {
+      "Type": "AWS::AutoScaling::ScheduledAction",
+      "Condition": "CreateScheduleUpAction",
+      "Properties": {
+        "AutoScalingGroupName": {
+          "Ref": "ECSAutoScalingGroup"
+        },
+        "DesiredCapacity": "0",
+        "Recurrence": "0 5 * * *",
+        "MinSize": "1",
+        "MaxSize": "1"
+      }
+    },
+    "ALBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Allow inbound traffic to ALB",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": {
+              "Ref": "ListenerPort"
+            },
+            "ToPort": {
+              "Ref": "ListenerPort"
+            },
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "-1",
+            "FromPort": 0,
+            "ToPort": 65535,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ALB-SecurityGroup"
+          }
+        ]
+      }
+    },
+    "ApplicationLoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Name": {
+          "Ref": "LoadBalancerName"
+        },
+        "Subnets": {
+          "Ref": "SubnetIds"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "ALBSecurityGroup"
+          }
+        ],
+        "Scheme": "internet-facing",
+        "LoadBalancerAttributes": [
+          {
+            "Key": "access_logs.s3.enabled",
+            "Value": "false"
+          },
+          {
+            "Key": "idle_timeout.timeout_seconds",
+            "Value": "60"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "LoadBalancerName"
+            }
+          }
+        ]
+      }
+    },
+    "ApplicationLoadBalancerListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "DependsOn" : "ApplicationLoadBalancer",
+      "Properties": {
+        "DefaultActions": [
+          {
+            "Type": "fixed-response",
+            "FixedResponseConfig" : {
+              "ContentType" : "text/plain",
+              "MessageBody" : "Handled by Default Listener",
+              "StatusCode" : "200"
+            }
+          }
+        ],
+        "LoadBalancerArn": { "Ref": "ApplicationLoadBalancer" },
+        "Port": { "Ref": "ListenerPort" },
+        "Protocol": "HTTP"
+      }
+    }
+  },
+  "Mappings": {
+    "AWSRegionToAMI": {
+      "us-east-1": {
+        "AMI": "ami-01efd9ed777fe2e7f"
+      },
+      "us-west-2": {
+        "AMI": "ami-07c1207a9d40bc3bd"
+      }
+    }
+  },
+  "Outputs": {
+    "ClusterName": {
+      "Description": "The name of the ECS Cluster",
+      "Value": {
+        "Ref": "ECSCluster"
+      }
+    },
+    "SecurityGroupId": {
+      "Description": "The ID of the ECS Security Group",
+      "Value": {
+        "Ref": "ECSSecurityGroup"
+      }
+    },
+    "AppClusterLoadBalancer": {
+      "Description" : "Load Balancer of the Cluster",
+      "Value" : {
+        "Ref" : "ApplicationLoadBalancer"
+      },
+      "Export" : {"Name" : {"Fn::Sub" : "${AWS::StackName}-load-balancer"}}
+    },
+    "AppClusterLoadBalancerListener": {
+      "Description" : "Load Balancer Listener of the Cluster",
+      "Value" : {
+        "Ref" : "ApplicationLoadBalancerListener"
+      },
+      "Export" : {"Name" : {"Fn::Sub" : "${AWS::StackName}-load-balancer-listener"}}
+    }
   }
+}
