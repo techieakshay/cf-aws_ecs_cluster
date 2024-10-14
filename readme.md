@@ -34,7 +34,7 @@ The stack consists of:
 #### Using AWS Console
 1. Navigate to the [AWS CloudFormation Console](https://console.aws.amazon.com/cloudformation/).
 2. Click on **Create Stack** and choose **With new resources (standard)**.
-3. Upload the CloudFormation template (e.g., `ecs-cluster.yml`) or provide the template URL.
+3. Upload the CloudFormation template (e.g., `cftemplate.json`) or provide the template URL.
 4. Provide the necessary parameters if you want to override.
 5. Click **Next**, configure stack options as needed, and proceed to **Create Stack**.
 
